@@ -1,0 +1,30 @@
+# Check if TPM is ready
+$tpmStatus = Get-WmiObject -Namespace root\CIMV2\Security\MicrosoftTpm -Class Win32_Tpm
+if ($tpmStatus.IsReady -ne "True") {
+    Write-Host "TPM is not ready. Please make sure it is enabled and activated in the BIOS."
+    exit
+}
+
+# Prompt user for BitLocker recovery password
+$recoveryPassword = Read-Host "Enter BitLocker recovery password" -AsSecureString
+
+# Enable BitLocker with TPM
+$driveLetter = "C:"
+$protectionMethod = "TPM"
+$encryptionMethod = "AES128"
+$autoUnlock = $true
+
+$protectArgs = @{
+    "MountPoint" = $driveLetter
+    "EncryptionMethod" = $encryptionMethod
+    "SkipHardwareTest" = $true
+    "UsedSpaceOnly" = $true
+    "AutoUnlock" = $autoUnlock
+    "RecoveryPassword" = $recoveryPassword
+    "TpmProtector" = $true
+    "TpmOwnerAuth" = (Get-WmiObject -Namespace root\CIMV2\Security\MicrosoftTpm -Class Win32_Tpm).ConvertToOwnerAuth()
+}
+
+$protectArgs.Add("AdBackupKeyProtector", $true) | Out-Null
+
+Enable-BitLocker @protectArgs
